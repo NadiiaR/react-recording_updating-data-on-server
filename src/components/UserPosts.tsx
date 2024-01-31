@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 
 import { User, Post } from '../types';
-import { getUserPosts } from '../services/post';
+import * as postService from '../services/post';
 import { getUsers } from '../services/user';
 import { PostForm } from './PostForm';
 import { PostList } from './PostList';
 import { Loader } from './Loader';
+import { error } from 'console';
 
 type Props = {
   userId: number;
@@ -27,7 +28,7 @@ export const UserPosts: React.FC<Props> = ({ userId }) => {
   function loadPosts() {
     setLoading(true);
 
-    getUserPosts(userId)
+    postService.getUserPosts(userId)
       .then(setPosts)
       .catch(() => setErrorMessage('Try again later'))
       .finally(() => setLoading(false));
@@ -35,29 +36,49 @@ export const UserPosts: React.FC<Props> = ({ userId }) => {
   // #endregion
   // #region add, delete, update
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  
-  function addPost(post: Post) {
-    setPosts(currentPosts => {
-      const maxId = Math.max(0, ...currentPosts.map(post => post.id));
-      const id = maxId + 1;
 
-      return [...currentPosts, { ...post, id }];
-    });
+  function addPost({ title, body, userId }: Post) {
+    setErrorMessage('');
+
+    return postService.createPost({ title, body, userId })
+    .then(newPost => {
+      setPosts(currentPosts =>  [...currentPosts, newPost]);
+    })
+    .catch((error)=>{
+      setErrorMessage(`Can't create a post`);
+      throw error;
+    })
   }
 
   function deletePost(postId: number) {
-    setPosts(currentPosts => currentPosts.filter(post => post.id !== postId));
+    postService.deleteUserPosts(postId)
+
+    .catch((error)=>{
+      setPosts(posts);
+      setErrorMessage(`Can't delete a post`);
+      throw error;
+    })
+    ;
   }
 
   function updatePost(updatedPost: Post) {
-    setPosts(currentPosts => {
-      const newPosts = [...currentPosts];
-      const index = newPosts.findIndex(post => post.id === updatedPost.id);
+    setErrorMessage('');
 
-      newPosts.splice(index, 1, updatedPost);
-
-      return newPosts;
-    });
+    return postService.updatePost(updatedPost)
+    .then(post => {
+      setPosts(currentPosts => {
+        const newPosts = [...currentPosts];
+        const index = newPosts.findIndex(post => post.id === updatedPost.id);
+  
+        newPosts.splice(index, 1, post);
+  
+        return newPosts;
+      });
+    })
+    .catch((error)=>{
+      setErrorMessage(`Can't update a post`);
+      throw error;
+    })
   }
   // #endregion
 
